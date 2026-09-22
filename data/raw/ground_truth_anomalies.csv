@@ -1,0 +1,11 @@
+start_date,end_date,duration_days,metrics_affected,anomaly_type,description
+2025-11-01,2025-11-01,1,"Revenue, Orders, Conversion_Rate",single_day_drop,"Checkout/conversion problem: conversion rate collapses for one day, dragging orders and revenue down with it."
+2025-12-04,2025-12-04,1,Website_Traffic,single_day_spike,"Traffic spike (e.g. bot or referral traffic) with no proportional lift in orders -- traffic quality issue, not a real demand increase."
+2026-01-06,2026-01-09,4,"Conversion_Rate, Orders, Revenue",multi_day_sustained,"Sustained conversion rate drop over several days, e.g. a broken checkout step that wasn't fixed immediately."
+2026-02-09,2026-02-09,1,Refunds,single_day_spike,"Sudden refund spike, e.g. a faulty product batch or shipping issue."
+2026-03-14,2026-03-18,5,"Ad_Spend, Website_Traffic, Revenue",multi_day_sustained,Ad spend increases sharply for several days while revenue/orders grow only modestly: declining marketing efficiency.
+2026-04-16,2026-04-18,3,"Website_Traffic, Orders, Revenue",multi_day_sustained,Sustained traffic decline (e.g. site outage or search ranking drop) driving orders and revenue down with it.
+2026-05-20,2026-05-20,1,"Average_Order_Value, Revenue",single_day_spike,"One-day AOV spike, e.g. a bulk or premium purchase, lifting revenue without a change in order count."
+2026-06-22,2026-06-22,1,"Website_Traffic, Conversion_Rate, Orders, Revenue",single_day_spike,"Positive demand spike, e.g. a flash sale or viral moment: traffic, conversion, orders and revenue all jump together. A good anomaly, but still statistically unusual."
+2026-07-25,2026-07-28,4,Refunds,multi_day_sustained,"Sustained elevated refund rate over several days, e.g. a recurring product defect surfacing across many orders."
+2026-08-28,2026-08-30,3,"Revenue, Orders, Conversion_Rate",multi_day_sustained,"Broad sustained decline in revenue, orders, and conversion while traffic stays roughly stable -- points at a purchasing-behavior problem rather than a traffic problem."
