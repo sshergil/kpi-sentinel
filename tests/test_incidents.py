@@ -45,9 +45,9 @@ def test_consecutive_days_merge_and_gaps_split():
 
 
 def test_max_gap_days_is_configurable():
-    rows = [("2025-03-01", "Revenue", -5.0, "drop"), ("2025-03-03", "Revenue", -5.0, "drop")]
+    rows = [("2025-03-01", "Revenue", -5.0, "drop"), ("2025-03-03", "Orders", -5.0, "drop")]
     assert len(build_incidents(cells(rows), max_gap_days=1)) == 2
-    assert len(build_incidents(cells(rows), max_gap_days=2)) == 1
+    assert len(build_incidents(cells(rows), max_gap_days=2)) == 1  # any metric, 2 days apart
 
 
 def test_metric_moving_both_ways_is_mixed():
@@ -67,3 +67,31 @@ def test_no_flags_gives_empty_table_with_columns():
 def test_missing_columns_raise():
     with pytest.raises(ValueError, match="detect_anomalies"):
         build_incidents(pd.DataFrame({"Date": []}))
+
+
+def test_one_day_gap_is_bridged_when_runs_share_a_metric():
+    out = build_incidents(cells([
+        ("2025-07-25", "Refunds", 6.0, "spike"),
+        ("2025-07-27", "Refunds", 5.0, "spike"),
+        ("2025-07-28", "Refunds", 5.0, "spike"),
+    ]))
+    assert len(out) == 1
+    assert out.iloc[0]["Start_Date"] == pd.Timestamp("2025-07-25")
+    assert out.iloc[0]["End_Date"] == pd.Timestamp("2025-07-28")
+    assert out.iloc[0]["Duration_Days"] == 4
+
+
+def test_gap_is_not_bridged_when_runs_share_no_metric():
+    out = build_incidents(cells([
+        ("2025-02-09", "Refunds", 6.0, "spike"),
+        ("2025-02-11", "Website_Traffic", -5.0, "drop"),
+    ]))
+    assert len(out) == 2
+
+
+def test_gap_longer_than_bridge_is_not_merged_and_bridging_can_be_disabled():
+    far = cells([("2025-03-01", "Revenue", -5.0, "drop"), ("2025-03-04", "Revenue", -5.0, "drop")])
+    assert len(build_incidents(far)) == 2
+    near = cells([("2025-03-01", "Revenue", -5.0, "drop"), ("2025-03-03", "Revenue", -5.0, "drop")])
+    assert len(build_incidents(near)) == 1
+    assert len(build_incidents(near, bridge_gap_days=1)) == 2

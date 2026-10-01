@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.baselines import WINDOW_WEEKS, compute_baselines
+from src.baselines import MIN_WEEKS, WINDOW_WEEKS, compute_baselines
 from src.data_loader import NUMERIC_COLUMNS
 
 
@@ -58,11 +58,28 @@ def test_current_day_does_not_contaminate_its_own_baseline():
     assert row(spiked, "Revenue", 60)["Baseline_Std"] == row(plain, "Revenue", 60)["Baseline_Std"]
 
 
-def test_warmup_period_has_no_baseline():
+def test_warmup_has_no_baseline_then_shorter_baseline_then_full_window():
     result = compute_baselines(make_df(), metrics=["Revenue"])
-    warmup = 7 * WINDOW_WEEKS  # 56 days
-    assert result.loc[result["Date"] < pd.Timestamp("2025-01-01") + pd.Timedelta(days=warmup), "Baseline_Mean"].isna().all()
-    assert not np.isnan(row(result, "Revenue", warmup)["Baseline_Mean"])
+    first_scored = 7 * MIN_WEEKS    # day 28
+    full_window = 7 * WINDOW_WEEKS  # day 56
+    assert result.loc[result["Date"] < pd.Timestamp("2025-01-01") + pd.Timedelta(days=first_scored), "Baseline_Mean"].isna().all()
+    early = row(result, "Revenue", first_scored)
+    assert early["Baseline_N"] == MIN_WEEKS and not np.isnan(early["Baseline_Mean"])
+    assert row(result, "Revenue", 40)["Baseline_N"] == 5  # 12, 19, 26, 33, 40 -> 5 prior weeks
+    assert row(result, "Revenue", full_window)["Baseline_N"] == WINDOW_WEEKS
+
+
+def test_shorter_warmup_baseline_uses_only_available_weeks():
+    result = compute_baselines(make_df(), metrics=["Revenue"])
+    r = row(result, "Revenue", 30)  # prior same weekday: 23, 16, 9, 2
+    assert r["Baseline_Mean"] == pytest.approx(np.mean([23, 16, 9, 2]))
+
+
+def test_min_weeks_is_configurable_and_capped_by_window():
+    strict = compute_baselines(make_df(), metrics=["Revenue"], min_weeks=8)
+    assert strict.loc[strict["Date"] < pd.Timestamp("2025-01-01") + pd.Timedelta(days=56), "Baseline_Mean"].isna().all()
+    capped = compute_baselines(make_df(), metrics=["Revenue"], window_weeks=3, min_weeks=4)
+    assert not np.isnan(row(capped, "Revenue", 21)["Baseline_Mean"])  # min capped to 3
 
 
 def test_one_row_per_day_per_metric():
@@ -71,14 +88,14 @@ def test_one_row_per_day_per_metric():
     assert set(result["Metric"]) == set(NUMERIC_COLUMNS)
     assert list(result.columns) == [
         "Date", "Metric", "Value", "Baseline_Mean", "Baseline_Std",
-        "Baseline_Q1", "Baseline_Q3", "Z_Score",
+        "Baseline_Q1", "Baseline_Q3", "Baseline_N", "Z_Score",
     ]
 
 
 def test_normal_weekend_vs_weekday_difference_is_not_extreme():
     result = compute_baselines(make_df({"Revenue": seasonal_values()}), metrics=["Revenue"])
     z = result["Z_Score"].dropna()
-    assert len(z) == 100 - 7 * WINDOW_WEEKS
+    assert len(z) == 100 - 7 * MIN_WEEKS
     # A 60-unit weekend lift on ~3-unit noise would be huge against a plain
     # window. Against same-weekday baselines it should be unremarkable.
     assert (z.abs() > 4).mean() < 0.10
@@ -120,9 +137,11 @@ def test_missing_metric_column_raises():
         compute_baselines(make_df(), metrics=["Nope"])
 
 
-def test_window_weeks_must_allow_a_std():
+def test_window_and_min_weeks_must_allow_a_std():
     with pytest.raises(ValueError, match="window_weeks"):
         compute_baselines(make_df(), window_weeks=1)
+    with pytest.raises(ValueError, match="min_weeks"):
+        compute_baselines(make_df(), min_weeks=1)
 
 
 def test_input_is_not_modified():

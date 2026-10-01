@@ -4,15 +4,10 @@ _Last updated: Milestones 4 and 5 implemented; awaiting local verification_
 
 ## What We're Building
 
-**KPI Sentinel** — a statistics-first anomaly detection system for e-commerce
-KPIs. A student portfolio project (UMD Information Science, targeting data
-analyst / data science roles) designed to look and behave like a real
-internal analytics tool.
+**KPI Sentinel** — a statistics-first anomaly detection system for e-commerce KPIs. A student portfolio project designed to look and behave like a real internal analytics tool.
 
-Core design principle: **statistical/data-science methods detect anomalies;
-an LLM only interprets and explains them in business language.** The LLM
-never decides what counts as anomalous, and is prompted to avoid asserting
-causation it can't support.
+Core design principle: **statistical/data-science methods detect anomalies; an LLM only interprets and explains them in business language.** 
+The LLM never decides what counts as anomalous, and is prompted to avoid asserting causation it can't support.
 
 Full roadmap (from the original project plan): project setup → synthetic
 data → data loading/validation → cleaning → metrics/baselines → anomaly
