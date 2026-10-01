@@ -14,3 +14,7 @@ env/
 # Editor
 .vscode/
 .idea/
+
+.env
+data/processed/
+data/raw/*_messy.csv

@@ -1,0 +1,39 @@
+name: daily-job
+
+# Manual by default. Do NOT enable the schedule until alert history persists
+# between runs (see README, "Deployment"): runners start with an empty disk,
+# so a scheduled run would treat every incident as new and re-send alerts.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Do not send email"
+        type: boolean
+        default: true
+  # schedule:
+  #   - cron: "0 7 * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python scripts/run_daily.py ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          ALERT_FROM: ${{ secrets.ALERT_FROM }}
+          ALERT_TO: ${{ secrets.ALERT_TO }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: alerts-db
+          path: data/processed/alerts.db
+          if-no-files-found: ignore
