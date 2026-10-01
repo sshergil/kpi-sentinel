@@ -11,11 +11,11 @@ A day is reported as an anomaly only when BOTH checks agree. Z_Flag and
 IQR_Flag are kept as separate columns so each check can be evaluated on
 its own.
 
-Note: with a 4-week baseline (4 observations) the z-score is noisy and
-flags ~7% of perfectly normal days at |z| > 3. The IQR agreement rule
-barely changes that, because a |z| > 3 value almost always falls outside
-the IQR fences too. The window length and threshold matter far more; both
-are parameters so they can be tuned against the ground-truth anomalies.
+Defaults (8-week window, |z| > 4) were chosen from a sweep against the
+project's ground truth (scripts/evaluate_detection.py): F1 0.77, versus
+0.36-0.52 for a 4-week window. The IQR agreement rule is close to
+redundant with the z-score (a large |z| almost always falls outside the
+IQR fences too), so window length and z threshold are what drive results.
 
 This module only detects. Severity, business rules and LLM explanations
 come later and never decide what is anomalous.
@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-Z_THRESHOLD = 3.0
+Z_THRESHOLD = 4.0
 IQR_MULTIPLIER = 1.5
 
 

@@ -10,6 +10,7 @@ a longer baseline window is not penalised for days it cannot score.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from src.data_loader import NUMERIC_COLUMNS
@@ -87,3 +88,51 @@ def score_detections(
         "cells_unscorable": len(label_keys - scorable),
     }
     return summary, per_event
+
+
+def score_incidents(
+    incidents: pd.DataFrame, ground_truth: pd.DataFrame, tolerance_days: int = 1
+) -> tuple[dict, pd.DataFrame, pd.Series]:
+    """Event-level scoring: does an incident overlap each ground-truth event?
+
+    An incident matches an event when their date ranges overlap, allowing
+    `tolerance_days` of slack on either side of the event. Unlike the
+    cell-level score, this gives credit for incidents built from any
+    metric, including derived ratios.
+
+    Returns (summary, per_event, matched_mask) where matched_mask marks
+    which incidents overlap at least one event.
+    """
+    tol = pd.Timedelta(days=tolerance_days)
+    matched = pd.Series(False, index=incidents.index)
+    rows = []
+    for event_id, ev in enumerate(ground_truth.itertuples(index=False), start=1):
+        lo, hi = ev.start_date - tol, ev.end_date + tol
+        hit = (incidents["Start_Date"] <= hi) & (incidents["End_Date"] >= lo)
+        matched |= hit
+        hits = incidents[hit]
+        rows.append(
+            {
+                "Event_ID": event_id,
+                "Start_Date": ev.start_date,
+                "End_Date": ev.end_date,
+                "Detected": bool(hit.any()),
+                "Incident_IDs": list(hits["Incident_ID"]),
+                "Categories": list(hits["Category"]) if "Category" in hits else [],
+                "Max_Severity": hits["Severity_Score"].max()
+                if ("Severity_Score" in hits and len(hits))
+                else np.nan,
+            }
+        )
+    per_event = pd.DataFrame(rows)
+    n_events = len(per_event)
+    n_detected = int(per_event["Detected"].sum()) if n_events else 0
+    summary = {
+        "n_events": n_events,
+        "events_detected": n_detected,
+        "event_recall": n_detected / n_events if n_events else 0.0,
+        "n_incidents": len(incidents),
+        "incidents_matched": int(matched.sum()),
+        "incident_precision": float(matched.sum()) / len(incidents) if len(incidents) else 0.0,
+    }
+    return summary, per_event, matched

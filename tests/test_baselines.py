@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.baselines import compute_baselines
+from src.baselines import WINDOW_WEEKS, compute_baselines
 from src.data_loader import NUMERIC_COLUMNS
 
 
@@ -29,8 +29,16 @@ def row(result, metric, day_index):
     return result[(result["Metric"] == metric) & (result["Date"] == date)].iloc[0]
 
 
+def test_default_window_is_eight_weeks():
+    assert WINDOW_WEEKS == 8
+    r = row(compute_baselines(make_df(), metrics=["Revenue"]), "Revenue", 60)
+    prior = [53, 46, 39, 32, 25, 18, 11, 4]
+    assert r["Baseline_Mean"] == pytest.approx(np.mean(prior))
+    assert r["Baseline_Std"] == pytest.approx(np.std(prior, ddof=1))
+
+
 def test_baseline_uses_same_weekday_previous_four_weeks():
-    result = compute_baselines(make_df(), metrics=["Revenue"])
+    result = compute_baselines(make_df(), metrics=["Revenue"], window_weeks=4)
     r = row(result, "Revenue", 40)
     prior = [33, 26, 19, 12]  # 7, 14, 21, 28 days earlier
     assert r["Value"] == 40
@@ -44,16 +52,17 @@ def test_baseline_uses_same_weekday_previous_four_weeks():
 def test_current_day_does_not_contaminate_its_own_baseline():
     plain = compute_baselines(make_df(), metrics=["Revenue"])
     values = np.arange(100, dtype=float)
-    values[40] = 1e6
+    values[60] = 1e6
     spiked = compute_baselines(make_df({"Revenue": values}), metrics=["Revenue"])
-    assert row(spiked, "Revenue", 40)["Baseline_Mean"] == row(plain, "Revenue", 40)["Baseline_Mean"]
-    assert row(spiked, "Revenue", 40)["Baseline_Std"] == row(plain, "Revenue", 40)["Baseline_Std"]
+    assert row(spiked, "Revenue", 60)["Baseline_Mean"] == row(plain, "Revenue", 60)["Baseline_Mean"]
+    assert row(spiked, "Revenue", 60)["Baseline_Std"] == row(plain, "Revenue", 60)["Baseline_Std"]
 
 
-def test_first_four_weeks_have_no_baseline():
+def test_warmup_period_has_no_baseline():
     result = compute_baselines(make_df(), metrics=["Revenue"])
-    assert result.loc[result["Date"] < "2025-01-29", "Baseline_Mean"].isna().all()
-    assert not np.isnan(row(result, "Revenue", 28)["Baseline_Mean"])
+    warmup = 7 * WINDOW_WEEKS  # 56 days
+    assert result.loc[result["Date"] < pd.Timestamp("2025-01-01") + pd.Timedelta(days=warmup), "Baseline_Mean"].isna().all()
+    assert not np.isnan(row(result, "Revenue", warmup)["Baseline_Mean"])
 
 
 def test_one_row_per_day_per_metric():
@@ -69,7 +78,7 @@ def test_one_row_per_day_per_metric():
 def test_normal_weekend_vs_weekday_difference_is_not_extreme():
     result = compute_baselines(make_df({"Revenue": seasonal_values()}), metrics=["Revenue"])
     z = result["Z_Score"].dropna()
-    assert len(z) == 100 - 28
+    assert len(z) == 100 - 7 * WINDOW_WEEKS
     # A 60-unit weekend lift on ~3-unit noise would be huge against a plain
     # window. Against same-weekday baselines it should be unremarkable.
     assert (z.abs() > 4).mean() < 0.10
@@ -95,7 +104,7 @@ def test_large_drop_gives_negative_z():
 
 def test_zero_baseline_std_gives_nan_z():
     result = compute_baselines(make_df({"Revenue": np.full(100, 50.0)}), metrics=["Revenue"])
-    r = row(result, "Revenue", 40)
+    r = row(result, "Revenue", 60)
     assert r["Baseline_Std"] == 0
     assert np.isnan(r["Z_Score"])
 

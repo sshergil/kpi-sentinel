@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.anomaly_detection import detect_anomalies
+from src.anomaly_detection import Z_THRESHOLD, detect_anomalies
 from src.baselines import compute_baselines
 from src.data_loader import NUMERIC_COLUMNS
 
@@ -44,7 +44,8 @@ def test_iqr_only_is_not_an_anomaly():
 
 
 def test_z_threshold_is_strict():
-    r = detect_one(value=120.0, z=3.0)
+    assert Z_THRESHOLD == 4.0
+    r = detect_one(value=120.0, z=Z_THRESHOLD)
     assert not r["Z_Flag"]
 
 

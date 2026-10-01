@@ -95,3 +95,41 @@ def test_no_detections_gives_zero_scores():
     labels = expand_labels(ground_truth([("2025-03-01", "2025-03-01", "Revenue")]))
     s, _ = score_detections(detections({("2025-03-01", "Revenue"): False}), labels, 4)
     assert s["precision"] == 0.0 and s["recall"] == 0.0 and s["f1"] == 0.0
+
+
+# --- event-level (incident) scoring --------------------------------------
+
+from src.evaluation import score_incidents  # noqa: E402
+
+
+def incident_table(rows):
+    return pd.DataFrame([
+        {"Incident_ID": i, "Start_Date": pd.Timestamp(s), "End_Date": pd.Timestamp(e),
+         "Category": "conversion_drop", "Severity_Score": sev}
+        for i, (s, e, sev) in enumerate(rows, start=1)
+    ])
+
+
+def test_incident_overlapping_event_counts_as_detection():
+    gt = ground_truth([("2025-03-10", "2025-03-12", "Revenue")])
+    inc = incident_table([("2025-03-11", "2025-03-11", 80.0), ("2025-06-01", "2025-06-01", 20.0)])
+    s, per_event, matched = score_incidents(inc, gt)
+    assert s["events_detected"] == 1 and s["event_recall"] == 1.0
+    assert s["incidents_matched"] == 1 and s["incident_precision"] == 0.5
+    assert list(matched) == [True, False]
+    assert per_event.loc[0, "Max_Severity"] == 80.0
+
+
+def test_tolerance_allows_one_day_slack():
+    gt = ground_truth([("2025-03-10", "2025-03-10", "Revenue")])
+    near = incident_table([("2025-03-11", "2025-03-11", 50.0)])
+    far = incident_table([("2025-03-13", "2025-03-13", 50.0)])
+    assert score_incidents(near, gt)[0]["events_detected"] == 1
+    assert score_incidents(far, gt)[0]["events_detected"] == 0
+
+
+def test_event_with_no_incident_is_missed():
+    gt = ground_truth([("2025-03-10", "2025-03-10", "Revenue")])
+    s, per_event, _ = score_incidents(incident_table([("2025-08-01", "2025-08-01", 10.0)]), gt)
+    assert s["event_recall"] == 0.0
+    assert not per_event.loc[0, "Detected"]

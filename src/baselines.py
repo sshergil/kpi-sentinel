@@ -2,7 +2,7 @@
 
 For each day and metric, the baseline is built from the same weekday in
 the previous `window_weeks` weeks (e.g. a Saturday is compared with the
-four prior Saturdays). Only *prior* observations are used, so the day
+eight prior Saturdays). Only *prior* observations are used, so the day
 being scored can never contaminate its own baseline, and ordinary
 weekday/weekend differences are not mistaken for anomalies.
 
@@ -19,7 +19,9 @@ import pandas as pd
 
 from src.data_loader import DATE_COLUMN, NUMERIC_COLUMNS
 
-WINDOW_WEEKS = 4
+# 8 weeks beat 4 weeks on both precision and recall in the ground-truth
+# sweep (scripts/evaluate_detection.py): a 4-sample baseline makes z-scores noisy.
+WINDOW_WEEKS = 8
 
 
 def compute_baselines(
